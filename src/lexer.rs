@@ -37,15 +37,13 @@ pub enum Token<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Range;
-
-    use super::Token as T;
+    use super::Token::*;
     use super::*;
     use pretty_assertions::assert_eq;
 
     #[track_caller]
     fn lex_valid(source: &str, expected: &[Token]) {
-        let actual: Vec<Token> = T::lexer(source).map(|a| a.unwrap()).collect();
+        let actual: Vec<Token> = Token::lexer(source).map(|a| a.unwrap()).collect();
         let expected = expected.to_vec();
 
         assert_eq!(expected, actual);
@@ -53,16 +51,16 @@ mod tests {
 
     #[test]
     fn addition() {
-        lex_valid("1 + 3", &[T::Int(1), T::Plus, T::Int(3)]);
+        lex_valid("1 + 3", &[Int(1), Plus, Int(3)]);
     }
 
     #[test]
     fn comments() {
-        lex_valid("1 + 3 // hello world", &[T::Int(1), T::Plus, T::Int(3)]);
+        lex_valid("1 + 3 // hello world", &[Int(1), Plus, Int(3)]);
         lex_valid(
             "1 + // hello world
             3",
-            &[T::Int(1), T::Plus, T::Int(3)],
+            &[Int(1), Plus, Int(3)],
         );
     }
 
@@ -70,13 +68,7 @@ mod tests {
     fn identifier() {
         lex_valid(
             "1 + hello * 4",
-            &[
-                T::Int(1),
-                T::Plus,
-                T::Ident("hello"),
-                T::Multiply,
-                T::Int(4),
-            ],
+            &[Int(1), Plus, Ident("hello"), Multiply, Int(4)],
         )
     }
 
@@ -85,12 +77,12 @@ mod tests {
         lex_valid(
             "fn main() {}",
             &[
-                T::Ident("fn"),
-                T::Ident("main"),
-                T::OpenParen,
-                T::CloseParen,
-                T::OpenCurly,
-                T::CloseCurly,
+                Ident("fn"),
+                Ident("main"),
+                OpenParen,
+                CloseParen,
+                OpenCurly,
+                CloseCurly,
             ],
         );
         lex_valid(
@@ -101,32 +93,32 @@ fn main(z, m) {
     x - z * m
 }",
             &[
-                T::Ident("fn"),
-                T::Ident("main"),
-                T::OpenParen,
-                T::Ident("z"),
-                T::Comma,
-                T::Ident("m"),
-                T::CloseParen,
-                T::OpenCurly,
-                T::Ident("let"),
-                T::Ident("a"),
-                T::Equals,
-                T::Int(4),
-                T::Semicolon,
-                T::Ident("let"),
-                T::Ident("x"),
-                T::Equals,
-                T::Ident("a"),
-                T::Multiply,
-                T::Int(4),
-                T::Semicolon,
-                T::Ident("x"),
-                T::Minus,
-                T::Ident("z"),
-                T::Multiply,
-                T::Ident("m"),
-                T::CloseCurly,
+                Ident("fn"),
+                Ident("main"),
+                OpenParen,
+                Ident("z"),
+                Comma,
+                Ident("m"),
+                CloseParen,
+                OpenCurly,
+                Ident("let"),
+                Ident("a"),
+                Equals,
+                Int(4),
+                Semicolon,
+                Ident("let"),
+                Ident("x"),
+                Equals,
+                Ident("a"),
+                Multiply,
+                Int(4),
+                Semicolon,
+                Ident("x"),
+                Minus,
+                Ident("z"),
+                Multiply,
+                Ident("m"),
+                CloseCurly,
             ],
         );
     }
