@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+logos = "0.15"
+chumsky = "0.9"
+inkwell = "0.5"
