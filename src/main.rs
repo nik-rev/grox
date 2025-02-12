@@ -3,7 +3,8 @@ use logos::Logos;
 
 #[derive(Logos, Clone, PartialEq, Hash, Debug, Eq)]
 #[logos(error = String)]
-#[logos(skip r"[ \t\r\n]+")]
+#[logos(skip r"[ \t\r\n\f]+")]
+#[logos(skip r"//[^\n]*")]
 enum Token {
     #[token("+")]
     Plus,
@@ -102,4 +103,24 @@ fn main() {
     }
 
     println!("{:#?}", parser().parse(tokens));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn addition() {
+        let text = "1 + 3";
+        let expect = [
+            (Ok(Token::Int(1)), 0..1),
+            (Ok(Token::Plus), 2..3),
+            (Ok(Token::Int(3)), 4..5),
+        ];
+
+        for (actual, expected) in Token::lexer(text).spanned().zip(expect) {
+            assert_eq!(actual, expected);
+        }
+    }
 }
