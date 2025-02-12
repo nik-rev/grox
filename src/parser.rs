@@ -17,7 +17,7 @@ pub enum Expr {
     Div(Box<Expr>, Box<Expr>),
 }
 
-pub fn parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
+pub fn parser<'a>() -> impl Parser<Token<'a>, Expr, Error = Simple<Token<'a>>> {
     recursive(|p| {
         let atom = {
             let parenthesized = p
