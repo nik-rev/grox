@@ -22,7 +22,7 @@ pub fn parser<'a>() -> impl Parser<Token<'a>, Expr, Error = Simple<Token<'a>>> {
         let atom = {
             let parenthesized = p
                 .clone()
-                .delimited_by(just(Token::LeftParen), just(Token::RightParen));
+                .delimited_by(just(Token::OpenParen), just(Token::CloseParen));
 
             let integer = select!(|_span|Token::Int(n) => Expr::Int(n));
 
