@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 
 use crate::lexer::Token;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Expr {
     // Integer literal
     Int(isize),
@@ -21,7 +21,7 @@ pub enum Expr {
     Call(String, Vec<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt<'a> {
     FunctionDeclaration {
         name: String,
@@ -199,6 +199,113 @@ fn function<'a>(stmt: parser!(Token<'a> => Stmt<'a>)) -> parser!(Token<'a> => St
         })
 }
 
-pub fn parser<'a>() -> parser!(Token<'a> => Stmt<'a>) {
-    recursive(|stmt| choice((function(stmt), var_declaration(), var_mutation()))).then_ignore(end())
+/// A program is a list of statements
+/// Each statement has specific rules. They may contain
+/// other statements or expressions.
+pub fn parser<'a>(
+) -> impl chumsky::Parser<Token<'a>, Vec<Stmt<'a>>, Error = chumsky::error::Simple<Token<'a>>> {
+    let stmt = recursive(|stmt| choice((function(stmt), var_declaration(), var_mutation())));
+
+    stmt.repeated().then_ignore(end())
+}
+
+#[cfg(test)]
+mod tests {
+    use logos::Logos;
+    use pretty_assertions::assert_eq;
+
+    use super::Expr as E;
+    use super::Stmt as S;
+    use super::*;
+
+    #[allow(dead_code)]
+    impl Expr {
+        pub fn int(value: isize) -> Self {
+            Self::Int(value)
+        }
+
+        pub fn ident(name: &str) -> Self {
+            Self::Ident(name.to_string())
+        }
+
+        pub fn neg(expr: Self) -> Self {
+            Self::Neg(Box::new(expr))
+        }
+
+        pub fn add(lhs: Self, rhs: Self) -> Self {
+            Self::Add(Box::new(lhs), Box::new(rhs))
+        }
+
+        pub fn sub(lhs: Self, rhs: Self) -> Self {
+            Self::Sub(Box::new(lhs), Box::new(rhs))
+        }
+
+        pub fn mul(lhs: Self, rhs: Self) -> Self {
+            Self::Mul(Box::new(lhs), Box::new(rhs))
+        }
+
+        pub fn div(lhs: Self, rhs: Self) -> Self {
+            Self::Div(Box::new(lhs), Box::new(rhs))
+        }
+
+        pub fn call(name: &str, args: Vec<Self>) -> Self {
+            Self::Call(name.to_string(), args)
+        }
+    }
+
+    #[allow(dead_code)]
+    impl<'a> Stmt<'a> {
+        pub fn func(name: &str, params: &[&str], body: Vec<Self>) -> Self {
+            Self::FunctionDeclaration {
+                name: name.to_string(),
+                params: params.iter().map(|&p| p.to_string()).collect(),
+                body,
+            }
+        }
+
+        pub fn let_var(name: &str, value: Expr) -> Self {
+            Self::VariableDeclaration {
+                name: name.to_string(),
+                value: Box::new(value),
+            }
+        }
+
+        pub fn assign(name: &'a str, value: Expr) -> Self {
+            Self::VariableAssignment {
+                name,
+                value: Box::new(value),
+            }
+        }
+
+        pub fn ret(expr: Expr) -> Self {
+            Self::Return(Box::new(expr))
+        }
+    }
+
+    fn assert_ast(src: &str, expected: Vec<Stmt>) {
+        let lexer: Vec<Token> = Token::lexer(src).map(|a| a.unwrap()).collect();
+
+        let a = parser().parse(lexer).unwrap();
+
+        assert_eq!(expected, a);
+    }
+
+    #[test]
+    fn arithmetic_and_return() {
+        assert_ast(
+            "\
+fn main(a, b) {
+    let x = a * (6 + b);
+    return x;
+}",
+            vec![S::func(
+                "main",
+                &["a", "b"],
+                vec![
+                    S::let_var("x", E::mul(E::ident("a"), E::add(E::int(6), E::ident("b")))),
+                    S::ret(E::ident("x")),
+                ],
+            )],
+        );
+    }
 }
