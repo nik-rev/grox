@@ -6,7 +6,10 @@ mod parser;
 
 fn main() {
     let text = "\
-fn main() {}";
+fn main(b, a) {
+    fn some() {};
+    fn function() {}
+}";
 
     let lexer = lexer::Token::lexer(text);
 

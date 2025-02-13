@@ -19,11 +19,11 @@ pub enum Expr {
 }
 
 #[derive(Debug)]
-pub enum Stmt<'a> {
+pub enum Stmt {
     FunctionDeclaration {
         name: String,
-        params: Vec<Vec<Token<'a>>>,
-        body: Vec<Vec<Stmt<'a>>>,
+        params: Vec<String>,
+        body: Vec<Stmt>,
     },
     VariableDeclaration {
         name: String,
@@ -36,36 +36,59 @@ pub enum Stmt<'a> {
     Return(Box<Expr>),
 }
 
-pub fn parser2<'a>() -> impl Parser<Token<'a>, Stmt<'a>, Error = Simple<Token<'a>>> {
+// TODO: Replace this macro with a type alias once that feature lands on stable Rust
+macro_rules! parser {
+    ($from:ty => $to:tt) => {
+        impl chumsky::Parser<$from, $to, Error = chumsky::error::Simple<$from>>
+    };
+}
+
+fn ident<'a>() -> parser!(Token<'a> => Expr) {
+    select!(|_span| Token::Ident(ident) => Expr::Ident(ident.to_owned()))
+}
+
+fn function<'a>(stmt: parser!(Token<'a> => Stmt)) -> parser!(Token<'a> => Stmt) {
+    let name = ident();
+
+    let parameters = ident()
+        .repeated()
+        .separated_by(just(Token::Comma))
+        .delimited_by(just(Token::OpenParen), just(Token::CloseParen));
+
+    let body = stmt
+        .repeated()
+        .separated_by(just(Token::Semicolon))
+        .delimited_by(just(Token::OpenCurly), just(Token::CloseCurly));
+
+    just(Token::Ident("fn"))
+        .ignore_then(name)
+        .then(parameters)
+        .then(body)
+        .map(|((function_name, params), body)| {
+            let params: Vec<String> = params
+                .into_iter()
+                .flatten()
+                .map(|param| {
+                    let Expr::Ident(param_name) = param else {
+                        unreachable!();
+                    };
+                    param_name.clone()
+                })
+                .collect();
+
+            let body = body.into_iter().flatten().collect();
+
+            let Expr::Ident(name) = function_name else {
+                unreachable!();
+            };
+
+            Stmt::FunctionDeclaration { name, params, body }
+        })
+}
+
+pub fn parser2<'a>() -> parser!(Token<'a> => Stmt) {
     recursive(|stmt| {
-        let func = just(Token::Ident("fn"))
-            .ignore_then(just(Token::Ident("main")))
-            // parameters
-            .then(
-                just(Token::Ident("lol"))
-                    .repeated()
-                    .separated_by(just(Token::Comma))
-                    .delimited_by(just(Token::OpenParen), just(Token::CloseParen)),
-            )
-            // body
-            .then(
-                stmt.repeated()
-                    .separated_by(just(Token::Semicolon))
-                    .delimited_by(just(Token::OpenCurly), just(Token::CloseCurly)),
-            )
-            .map(|((name, params), body)| {
-                let Token::Ident(name) = name else {
-                    unreachable!();
-                };
-
-                Stmt::FunctionDeclaration {
-                    name: name.to_owned(),
-                    params,
-                    body,
-                }
-            });
-
-        func
+        function(stmt)
 
         // let atom = {
         //     let parenthesized = expr
@@ -115,7 +138,7 @@ pub fn parser2<'a>() -> impl Parser<Token<'a>, Stmt<'a>, Error = Simple<Token<'a
     .then_ignore(end())
 }
 
-pub fn parser<'a>() -> impl Parser<Token<'a>, Expr, Error = Simple<Token<'a>>> {
+pub fn parser<'a>() -> parser!(Token<'a> => Expr) {
     recursive(|expr| {
         let atom = {
             let parenthesized = expr
