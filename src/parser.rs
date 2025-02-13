@@ -16,6 +16,9 @@ pub enum Expr {
     Sub(Box<Expr>, Box<Expr>),
     Mul(Box<Expr>, Box<Expr>),
     Div(Box<Expr>, Box<Expr>),
+
+    // Function call
+    Call(String, Vec<Expr>),
 }
 
 #[derive(Debug)]
@@ -94,8 +97,23 @@ fn expr<'a>() -> parser!(Token<'a> => Expr) {
                 .delimited_by(just(Token::OpenParen), just(Token::CloseParen));
 
             let integer = select!(|_span| Token::Int(n) => Expr::Int(n));
+            let ident = select!(|_span| Token::Ident(n) => Expr::Ident(n.to_owned()));
 
-            parenthesized.or(integer)
+            let call = ident
+                .then(
+                    expr.repeated()
+                        .separated_by(just(Token::Comma))
+                        .delimited_by(just(Token::OpenParen), just(Token::CloseParen)),
+                )
+                .map(|(name, params)| {
+                    let Expr::Ident(func_name) = name else {
+                        unreachable!()
+                    };
+
+                    Expr::Call(func_name, params.into_iter().flatten().collect())
+                });
+
+            call.or(parenthesized).or(integer).or(ident)
         };
 
         let unary = just(Token::Minus)

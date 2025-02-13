@@ -7,9 +7,7 @@ mod parser;
 fn main() {
     let text = "\
 fn main(b, a) {
-    fn some() {};
-    let a = 4 * 8 + (1 - 8 + 4);
-    fn function() {}
+    let lol = 4 + xd(a, 4);
 }";
 
     let lexer = lexer::Token::lexer(text);
