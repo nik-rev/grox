@@ -5,7 +5,8 @@ mod lexer;
 mod parser;
 
 fn main() {
-    let text = "1 + 3 * (12 - 4)";
+    let text = "\
+fn main() {}";
 
     let lexer = lexer::Token::lexer(text);
 
@@ -21,5 +22,5 @@ fn main() {
         }
     }
 
-    println!("{:#?}", parser::parser().parse(tokens));
+    println!("{:#?}", parser::parser2().parse(tokens));
 }

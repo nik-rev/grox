@@ -3,6 +3,11 @@ name = "grox"
 version = "0.1.0"
 edition = "2021"
 
+[lints.clippy]
+# Useful to give context to return values especially in closures where
+# the type may not be obvious
+let_and_return = "allow"
+
 [dependencies]
 logos = "0.15"
 chumsky = "0.9"
