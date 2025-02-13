@@ -8,6 +8,7 @@ fn main() {
     let text = "\
 fn main(b, a) {
     fn some() {};
+    let a = 4 * 8 + (1 - 8 + 4);
     fn function() {}
 }";
 
@@ -25,5 +26,5 @@ fn main(b, a) {
         }
     }
 
-    println!("{:#?}", parser::parser2().parse(tokens));
+    println!("{:#?}", parser::parser().parse(tokens));
 }
