@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 
 use crate::lexer::Token;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum Expr {
     // Integer literal
     Float(f64),
@@ -21,7 +21,7 @@ pub enum Expr {
     Call(String, Vec<Expr>),
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum Stmt<'a> {
     FunctionDeclaration {
         name: String,

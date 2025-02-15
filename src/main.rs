@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chumsky::Parser as _;
 use inkwell::{
     builder::Builder,
@@ -28,36 +30,41 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     fn compile_expr(&mut self, expr: Box<Expr>) -> Result<FloatValue<'ctx>, &'static str> {
-        let vars: HashMap<String, String> = HashMap::new();
         match *expr {
             Expr::Float(num) => Ok(self.context.f64_type().const_float(num)),
             Expr::Ident(_) => todo!(),
             Expr::Neg(expr) => {
                 // To negate a value N, we do N - N*2
-                let double = self.compile_expr(Expr::Mul(expr, Expr::Float(2)));
-                let expr = self.compile_expr(expr);
+                let double = self.compile_expr(Box::new(Expr::Mul(
+                    expr.clone(),
+                    Box::new(Expr::Float(2.0)),
+                )))?;
+                let expr = self.compile_expr(expr)?;
 
-                Ok(self.builder.build_float_sub(expr, double, "negate"))
+                Ok(self
+                    .builder
+                    .build_float_sub(expr, double, "negate")
+                    .unwrap())
             }
             Expr::Add(lhs, rhs) => {
-                let lhs = self.compile_expr(lhs);
-                let rhs = self.compile_expr(rhs);
-                Ok(self.builder.build_float_add(lhs, rhs, "tmpadd"))
+                let lhs = self.compile_expr(lhs)?;
+                let rhs = self.compile_expr(rhs)?;
+                Ok(self.builder.build_float_add(lhs, rhs, "tmpadd").unwrap())
             }
             Expr::Sub(lhs, rhs) => {
-                let lhs = self.compile_expr(lhs);
-                let rhs = self.compile_expr(rhs);
-                Ok(self.builder.build_float_sub(lhs, rhs, "tmpsub"))
+                let lhs = self.compile_expr(lhs)?;
+                let rhs = self.compile_expr(rhs)?;
+                Ok(self.builder.build_float_sub(lhs, rhs, "tmpsub").unwrap())
             }
             Expr::Mul(lhs, rhs) => {
-                let lhs = self.compile_expr(lhs);
-                let rhs = self.compile_expr(rhs);
-                Ok(self.builder.build_float_mul(lhs, rhs, "tmpmul"))
+                let lhs = self.compile_expr(lhs)?;
+                let rhs = self.compile_expr(rhs)?;
+                Ok(self.builder.build_float_mul(lhs, rhs, "tmpmul").unwrap())
             }
             Expr::Div(lhs, rhs) => {
-                let lhs = self.compile_expr(lhs);
-                let rhs = self.compile_expr(rhs);
-                Ok(self.builder.build_float_div(lhs, rhs, "tmpdiv"))
+                let lhs = self.compile_expr(lhs)?;
+                let rhs = self.compile_expr(rhs)?;
+                Ok(self.builder.build_float_div(lhs, rhs, "tmpdiv").unwrap())
             }
             Expr::Call(name, args) => {
                 let Some(fun) = self.get_function(&name) else {
@@ -67,7 +74,7 @@ impl<'ctx> Compiler<'ctx> {
                 let mut compiled_args = Vec::with_capacity(args.len());
 
                 for arg in args {
-                    compiled_args.push(self.compile_expr(arg)?);
+                    compiled_args.push(self.compile_expr(Box::new(arg))?);
                 }
 
                 let argsv: Vec<BasicMetadataValueEnum> = compiled_args
@@ -78,7 +85,7 @@ impl<'ctx> Compiler<'ctx> {
 
                 let Some(val) = self
                     .builder
-                    .build_call(fun, args, "tmp")
+                    .build_call(fun, &argsv, "tmp")
                     .unwrap()
                     .try_as_basic_value()
                     .left()

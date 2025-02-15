@@ -1,6 +1,6 @@
 use logos::Logos;
 
-#[derive(Logos, Clone, PartialEq, Hash, Debug, Eq)]
+#[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(error = String)]
 // whitespace
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -51,16 +51,16 @@ mod tests {
 
     #[test]
     fn addition() {
-        lex_valid("1 + 3", &[Float(1), Plus, Float(3)]);
+        lex_valid("1 + 3", &[Float(1.0), Plus, Float(3.0)]);
     }
 
     #[test]
     fn comments() {
-        lex_valid("1 + 3 // hello world", &[Float(1), Plus, Float(3)]);
+        lex_valid("1 + 3 // hello world", &[Float(1.0), Plus, Float(3.0)]);
         lex_valid(
             "1 + // hello world
             3",
-            &[Float(1), Plus, Float(3)],
+            &[Float(1.0), Plus, Float(3.0)],
         );
     }
 
@@ -68,7 +68,7 @@ mod tests {
     fn identifier() {
         lex_valid(
             "1 + hello * 4",
-            &[Float(1), Plus, Ident("hello"), Multiply, Float(4)],
+            &[Float(1.0), Plus, Ident("hello"), Multiply, Float(4.0)],
         )
     }
 
@@ -104,14 +104,14 @@ fn main(z, m) {
                 Ident("let"),
                 Ident("a"),
                 Equals,
-                Float(4),
+                Float(4.0),
                 Semicolon,
                 Ident("let"),
                 Ident("x"),
                 Equals,
                 Ident("a"),
                 Multiply,
-                Float(4),
+                Float(4.0),
                 Semicolon,
                 Ident("x"),
                 Minus,
