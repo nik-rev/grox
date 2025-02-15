@@ -90,6 +90,8 @@ impl<'ctx> Compiler<'ctx> {
 
         self.builder.position_at_end(entry);
 
+        self.fn_value_opt = Some(fn_val);
+
         let len = params.len();
 
         self.vars.reserve(len);
