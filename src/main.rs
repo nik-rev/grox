@@ -8,9 +8,13 @@ mod parser;
 
 fn main() {
     let text = "\
+fn lmao(x) {
+    return 4 - x;
+}
+    
 fn main() {
     let lol = 4 + 16;
-    return 1 + lol;
+    return 1 + lol * lmao(8);
 }";
 
     let mut tokens = vec![];

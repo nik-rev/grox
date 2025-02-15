@@ -23,6 +23,13 @@ pub struct Compiler<'ctx> {
     fn_value_opt: Option<FunctionValue<'ctx>>,
 }
 
+enum FnResult<'ctx> {
+    /// A value was returned from the function
+    Return(Option<Result<FloatValue<'ctx>, &'static str>>),
+    /// This is the main function. Return the actual main function (entry point of our program)
+    Main(FunctionValue<'ctx>),
+}
+
 impl<'ctx> Compiler<'ctx> {
     pub fn new(context: &'ctx Context, builder: Builder<'ctx>, module: Module<'ctx>) -> Self {
         Self {
@@ -104,7 +111,7 @@ impl<'ctx> Compiler<'ctx> {
             self.vars.insert(param_name, param_ptr);
         }
 
-        let Some(body) = self.compile_stmts(body, false) else {
+        let FnResult::Return(Some(body)) = self.compile_stmts(body, false) else {
             // TODO: handle functions with no return
             unreachable!()
         };
@@ -124,28 +131,32 @@ impl<'ctx> Compiler<'ctx> {
         }
     }
 
-    pub fn compile(&mut self, program: Vec<Stmt>) {
-        self.compile_stmts(program, true);
+    pub fn compile(&mut self, program: Vec<Stmt>) -> FunctionValue {
+        let FnResult::Main(func) = self.compile_stmts(program, true) else {
+            unreachable!();
+        };
+
+        func
     }
 
     /// Returns Some(Result<FloatValue>) if the statement is a return. Stops
     /// processing all statements in that case.
-    fn compile_stmts(
-        &mut self,
-        stmts: Vec<Stmt>,
-        toplevel_call: bool,
-    ) -> Option<Result<FloatValue<'ctx>, &'static str>> {
+    fn compile_stmts(&mut self, stmts: Vec<Stmt>, toplevel_call: bool) -> FnResult<'ctx> {
         for stmt in stmts {
             match stmt {
                 Stmt::FunctionDeclaration { name, params, body } => {
-                    let fn_main = name == "main" && toplevel_call;
+                    let is_fn_main = name == "main" && toplevel_call;
                     match self.compile_fn_decl(Stmt::FunctionDeclaration { name, params, body }) {
-                        Err(err) => return Some(Err(err)),
-                        Ok(val) => {
-                            if fn_main {
-                                dbg!(val);
-                            }
-                        }
+                        // We are doing codegen for top level functions
+                        // The current function is the entry point of our program.
+                        // Instead of evaluating its result and returning it,
+                        // we return the actual function.
+                        Ok(val) if is_fn_main => return FnResult::Main(val),
+                        // This is a basic function called somewhere within "main".
+                        // Its result is evaluated
+                        Err(err) => return FnResult::Return(Some(Err(err))),
+                        // Top-level functions other than "main"
+                        Ok(_) => (),
                     }
                 }
                 // With 'let'
@@ -153,7 +164,7 @@ impl<'ctx> Compiler<'ctx> {
                     let var_value = match *value {
                         Some(value) => match self.compile_expr(value) {
                             Ok(ok) => ok,
-                            Err(err) => return Some(Err(err)),
+                            Err(err) => return FnResult::Return(Some(Err(err))),
                         },
                         // empty variables initialize to zero
                         None => self.context.f64_type().const_float(0.),
@@ -168,22 +179,22 @@ impl<'ctx> Compiler<'ctx> {
                 Stmt::VariableAssignment { name, value } => {
                     let var_value = match self.compile_expr(*value) {
                         Ok(ok) => ok,
-                        Err(err) => return Some(Err(err)),
+                        Err(err) => return FnResult::Return(Some(Err(err))),
                     };
 
                     let var_ptr = match self.vars.get(name).ok_or("Undefined variable.") {
                         Ok(ok) => ok,
-                        Err(err) => return Some(Err(err)),
+                        Err(err) => return FnResult::Return(Some(Err(err))),
                     };
 
                     self.alloc(*var_ptr, var_value);
                 }
-                Stmt::Return(expr) => return Some(self.compile_expr(*expr)),
+                Stmt::Return(expr) => return FnResult::Return(Some(self.compile_expr(*expr))),
             }
         }
 
         // Statements have been successfully compiled, but no 'return' statement found
-        None
+        FnResult::Return(None)
     }
 
     fn compile_expr(&mut self, expr: Expr) -> Result<FloatValue<'ctx>, &'static str> {
