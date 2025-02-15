@@ -11,7 +11,7 @@ let_and_return = "allow"
 [dependencies]
 logos = "0.15"
 chumsky = "0.9"
-inkwell = { version = "0.5", features = ["llvm18-0-force-dynamic"] }
+inkwell = { version = "0.5", features = ["llvm18-0"] }
 ordered-float = "0.5"
 
 [dev-dependencies]

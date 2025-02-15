@@ -31,7 +31,7 @@ pub enum Stmt<'a> {
     },
     VariableDeclaration {
         name: String,
-        value: Box<Expr>,
+        value: Box<Option<Expr>>,
     },
     VariableAssignment {
         name: &'a str,
@@ -58,8 +58,7 @@ fn var_declaration<'a>() -> parser!(Token<'a> => Stmt<'a>) {
 
     just(Token::Ident("let"))
         .ignore_then(name)
-        .then_ignore(just(Token::Equals))
-        .then(expr())
+        .then(just(Token::Equals).ignore_then(expr()).or_not())
         .map(|(name, value)| {
             let Expr::Ident(var_name) = name else {
                 unreachable!()
@@ -264,10 +263,18 @@ mod tests {
             }
         }
 
-        pub fn let_var(name: &str, value: Expr) -> Self {
+        pub fn let_var_init(name: &str, value: Expr) -> Self {
             Self::VariableDeclaration {
                 name: name.to_string(),
-                value: Box::new(value),
+                value: Box::new(Some(value)),
+            }
+        }
+
+        /// Create variable without an initializer
+        pub fn let_var(name: &str) -> Self {
+            Self::VariableDeclaration {
+                name: name.to_string(),
+                value: Box::new(None),
             }
         }
 
@@ -303,7 +310,7 @@ fn main(a, b) {
                 "main",
                 &["a", "b"],
                 vec![
-                    S::let_var(
+                    S::let_var_init(
                         "x",
                         E::mul(E::ident("a"), E::add(E::int(6.0), E::ident("b"))),
                     ),

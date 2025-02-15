@@ -2,12 +2,15 @@ use std::{collections::HashMap, iter};
 
 use chumsky::Parser as _;
 use inkwell::{
-    builder::Builder,
+    builder::{Builder, BuilderError},
     context::Context,
     execution_engine::ExecutionEngine,
     module::Module,
     types::BasicMetadataTypeEnum,
-    values::{BasicMetadataValueEnum, BasicValueEnum, FloatValue, FunctionValue, PointerValue},
+    values::{
+        BasicMetadataValueEnum, BasicValue, BasicValueEnum, FloatValue, FunctionValue,
+        InstructionValue, PointerValue,
+    },
 };
 use logos::Logos as _;
 use parser::{Expr, Stmt};
@@ -40,7 +43,8 @@ impl<'ctx> Compiler<'ctx> {
             .unwrap()
     }
 
-    fn create_entry_block_alloca(&self, name: &str) -> PointerValue<'ctx> {
+    /// Allocate a new pointer to an f64 on the stack
+    fn create_ptr(&self, name: &str) -> PointerValue<'ctx> {
         let builder = self.context.create_builder();
 
         let entry = self.fn_value().get_first_basic_block().unwrap();
@@ -51,6 +55,10 @@ impl<'ctx> Compiler<'ctx> {
         }
 
         builder.build_alloca(self.context.f64_type(), name).unwrap()
+    }
+
+    fn alloc<V: BasicValue<'ctx>>(&self, ptr: PointerValue<'ctx>, val: V) -> InstructionValue {
+        self.builder.build_store(ptr, val).unwrap()
     }
 
     fn compile_fn_decl(&mut self, func: Stmt) -> Result<FunctionValue<'ctx>, &'static str> {
@@ -80,12 +88,12 @@ impl<'ctx> Compiler<'ctx> {
 
         self.variables.reserve(len);
 
-        for (param, param_name) in fn_val.get_param_iter().zip(params) {
-            let alloca = self.create_entry_block_alloca(&param_name);
+        for (param_val, param_name) in fn_val.get_param_iter().zip(params) {
+            let param_ptr = self.create_ptr(&param_name);
 
-            self.builder.build_store(alloca, param).unwrap();
+            self.alloc(param_ptr, param_val);
 
-            self.variables.insert(param_name, alloca);
+            self.variables.insert(param_name, param_ptr);
         }
 
         let Some(body) = self.compile_stmts(body) else {
@@ -116,13 +124,48 @@ impl<'ctx> Compiler<'ctx> {
     ) -> Option<Result<FloatValue<'ctx>, &'static str>> {
         for stmt in stmts {
             match stmt {
-                Stmt::FunctionDeclaration { name, params, body } => todo!(),
-                Stmt::VariableDeclaration { name, value } => todo!(),
-                Stmt::VariableAssignment { name, value } => todo!(),
+                Stmt::FunctionDeclaration { name, params, body } => {
+                    if let Err(err) =
+                        self.compile_fn_decl(Stmt::FunctionDeclaration { name, params, body })
+                    {
+                        return Some(Err(err));
+                    };
+                }
+                // With 'let'
+                Stmt::VariableDeclaration { name, value } => {
+                    let var_value = match *value {
+                        Some(value) => match self.compile_expr(value) {
+                            Ok(ok) => ok,
+                            Err(err) => return Some(Err(err)),
+                        },
+                        // empty variables initialize to zero
+                        None => self.context.f64_type().const_float(0.),
+                    };
+
+                    let var_ptr = self.create_ptr(name.as_str());
+
+                    self.alloc(var_ptr, var_value);
+                    self.variables.insert(name, var_ptr);
+                }
+                // In Grox we allow shadowing variables.
+                Stmt::VariableAssignment { name, value } => {
+                    let var_value = match self.compile_expr(*value) {
+                        Ok(ok) => ok,
+                        Err(err) => return Some(Err(err)),
+                    };
+
+                    let var_ptr = match self.variables.get(name).ok_or("Undefined variable.") {
+                        Ok(ok) => ok,
+                        Err(err) => return Some(Err(err)),
+                    };
+
+                    self.alloc(*var_ptr, var_value);
+                }
                 Stmt::Return(expr) => return Some(self.compile_expr(*expr)),
             }
         }
 
+        // Statements have been successfully compiled, but no 'return' statement found
         None
     }
 
