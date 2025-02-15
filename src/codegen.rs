@@ -26,7 +26,7 @@ pub struct Compiler<'ctx> {
 impl<'ctx> Compiler<'ctx> {
     pub fn new(context: &'ctx Context, builder: Builder<'ctx>, module: Module<'ctx>) -> Self {
         Self {
-            context: &context,
+            context,
             builder,
             module,
             fn_value_opt: None,
@@ -52,11 +52,12 @@ impl<'ctx> Compiler<'ctx> {
     fn create_ptr(&self, name: &str) -> PointerValue<'ctx> {
         let builder = self.context.create_builder();
 
-        let entry = self.fn_value().get_first_basic_block().unwrap();
+        let first_block = self.fn_value().get_first_basic_block().unwrap();
 
-        match entry.get_first_instruction() {
-            Some(first_instr) => builder.position_before(&first_instr),
-            None => builder.position_at_end(entry),
+        // Place the instructions before any other instruction
+        match first_block.get_first_instruction() {
+            Some(first_instruction) => builder.position_before(&first_instruction),
+            None => builder.position_at_end(first_block),
         }
 
         builder.build_alloca(self.context.f64_type(), name).unwrap()
@@ -101,7 +102,7 @@ impl<'ctx> Compiler<'ctx> {
             self.vars.insert(param_name, param_ptr);
         }
 
-        let Some(body) = self.compile_stmts(body) else {
+        let Some(body) = self.compile_stmts(body, false) else {
             // TODO: handle functions with no return
             unreachable!()
         };
@@ -121,20 +122,29 @@ impl<'ctx> Compiler<'ctx> {
         }
     }
 
+    pub fn compile(&mut self, program: Vec<Stmt>) {
+        self.compile_stmts(program, true);
+    }
+
     /// Returns Some(Result<FloatValue>) if the statement is a return. Stops
     /// processing all statements in that case.
-    pub fn compile_stmts(
+    fn compile_stmts(
         &mut self,
         stmts: Vec<Stmt>,
+        toplevel_call: bool,
     ) -> Option<Result<FloatValue<'ctx>, &'static str>> {
         for stmt in stmts {
             match stmt {
                 Stmt::FunctionDeclaration { name, params, body } => {
-                    if let Err(err) =
-                        self.compile_fn_decl(Stmt::FunctionDeclaration { name, params, body })
-                    {
-                        return Some(Err(err));
-                    };
+                    let fn_main = name == "main" && toplevel_call;
+                    match self.compile_fn_decl(Stmt::FunctionDeclaration { name, params, body }) {
+                        Err(err) => return Some(Err(err)),
+                        Ok(val) => {
+                            if fn_main {
+                                dbg!(val);
+                            }
+                        }
+                    }
                 }
                 // With 'let'
                 Stmt::VariableDeclaration { name, value } => {

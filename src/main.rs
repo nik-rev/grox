@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use chumsky::Parser as _;
 use inkwell::context::Context;
 use logos::Logos as _;
@@ -35,7 +33,5 @@ fn main() {
 
     let mut compiler = codegen::Compiler::new(&context, builder, module);
 
-    let result = compiler.compile_stmts(ast);
-
-    dbg!(result);
+    compiler.compile(ast);
 }
