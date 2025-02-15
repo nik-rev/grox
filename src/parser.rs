@@ -1,11 +1,12 @@
 use chumsky::prelude::*;
+use ordered_float::NotNaN;
 
 use crate::lexer::Token;
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialOrd, Clone, Ord, Hash, Eq, PartialEq)]
 pub enum Expr {
     // Integer literal
-    Float(f64),
+    Number(NotNaN<f64>),
     Ident(String),
 
     // Unary minus
@@ -21,7 +22,7 @@ pub enum Expr {
     Call(String, Vec<Expr>),
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub enum Stmt<'a> {
     FunctionDeclaration {
         name: String,
@@ -96,7 +97,7 @@ fn expr<'a>() -> parser!(Token<'a> => Expr) {
                 .clone()
                 .delimited_by(just(Token::OpenParen), just(Token::CloseParen));
 
-            let integer = select!(|_span| Token::Float(n) => Expr::Float(n));
+            let integer = select!(|_span| Token::Float(n) => Expr::Number(n));
             let ident = select!(|_span| Token::Ident(n) => Expr::Ident(n.to_owned()));
 
             let call = ident
@@ -220,8 +221,8 @@ mod tests {
 
     #[allow(dead_code)]
     impl Expr {
-        pub fn int(value: isize) -> Self {
-            Self::Float(value)
+        pub fn int(value: f64) -> Self {
+            Self::Number(value.into())
         }
 
         pub fn ident(name: &str) -> Self {
@@ -302,7 +303,10 @@ fn main(a, b) {
                 "main",
                 &["a", "b"],
                 vec![
-                    S::let_var("x", E::mul(E::ident("a"), E::add(E::int(6), E::ident("b")))),
+                    S::let_var(
+                        "x",
+                        E::mul(E::ident("a"), E::add(E::int(6.0), E::ident("b"))),
+                    ),
                     S::ret(E::ident("x")),
                 ],
             )],

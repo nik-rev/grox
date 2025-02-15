@@ -1,6 +1,7 @@
 use logos::Logos;
+use ordered_float::NotNaN;
 
-#[derive(Logos, Clone, PartialEq, Debug)]
+#[derive(Logos, Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 #[logos(error = String)]
 // whitespace
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -29,8 +30,8 @@ pub enum Token<'a> {
     Equals,
     #[token(";")]
     Semicolon,
-    #[regex("[.0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
-    Float(f64),
+    #[regex("([0-9]*[.])?[0-9]+", |lex| NotNaN::<f64>::new(lex.slice().parse::<f64>().unwrap()).unwrap())]
+    Float(NotNaN<f64>),
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]
     Ident(&'a str),
 }
@@ -51,16 +52,19 @@ mod tests {
 
     #[test]
     fn addition() {
-        lex_valid("1 + 3", &[Float(1.0), Plus, Float(3.0)]);
+        lex_valid("1 + 3", &[Float(1.0.into()), Plus, Float(3.0.into())]);
     }
 
     #[test]
     fn comments() {
-        lex_valid("1 + 3 // hello world", &[Float(1.0), Plus, Float(3.0)]);
+        lex_valid(
+            "1 + 3 // hello world",
+            &[Float(1.0.into()), Plus, Float(3.0.into())],
+        );
         lex_valid(
             "1 + // hello world
             3",
-            &[Float(1.0), Plus, Float(3.0)],
+            &[Float(1.0.into()), Plus, Float(3.0.into())],
         );
     }
 
@@ -68,7 +72,13 @@ mod tests {
     fn identifier() {
         lex_valid(
             "1 + hello * 4",
-            &[Float(1.0), Plus, Ident("hello"), Multiply, Float(4.0)],
+            &[
+                Float(1.0.into()),
+                Plus,
+                Ident("hello"),
+                Multiply,
+                Float(4.0.into()),
+            ],
         )
     }
 
@@ -104,14 +114,14 @@ fn main(z, m) {
                 Ident("let"),
                 Ident("a"),
                 Equals,
-                Float(4.0),
+                Float(4.0.into()),
                 Semicolon,
                 Ident("let"),
                 Ident("x"),
                 Equals,
                 Ident("a"),
                 Multiply,
-                Float(4.0),
+                Float(4.0.into()),
                 Semicolon,
                 Ident("x"),
                 Minus,
