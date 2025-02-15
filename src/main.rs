@@ -27,34 +27,34 @@ impl<'ctx> Compiler<'ctx> {
         self.module.get_function(name)
     }
 
-    fn compile_stmt(&mut self, stmt: Stmt) -> Result<(), &'static str> {
-        todo!()
-    }
-
     fn compile_expr(&mut self, expr: Box<Expr>) -> Result<FloatValue<'ctx>, &'static str> {
+        let vars: HashMap<String, String> = HashMap::new();
         match *expr {
             Expr::Float(num) => Ok(self.context.f64_type().const_float(num)),
-            Expr::Ident(name) => match self.variables.get(name.as_str()) {
-                Ok(name) => todo!(),
-                None => Err("Could not find a matching variable."),
-            },
-            Expr::Neg(expr) => Ok(self.builder.build_float_sub(lhs, rhs, name)),
+            Expr::Ident(_) => todo!(),
+            Expr::Neg(expr) => {
+                // To negate a value N, we do N - N*2
+                let double = self.compile_expr(Expr::Mul(expr, Expr::Float(2)));
+                let expr = self.compile_expr(expr);
+
+                Ok(self.builder.build_float_sub(expr, double, "negate"))
+            }
             Expr::Add(lhs, rhs) => {
                 let lhs = self.compile_expr(lhs);
                 let rhs = self.compile_expr(rhs);
                 Ok(self.builder.build_float_add(lhs, rhs, "tmpadd"))
             }
-            Expr::Sub(expr, expr1) => {
+            Expr::Sub(lhs, rhs) => {
                 let lhs = self.compile_expr(lhs);
                 let rhs = self.compile_expr(rhs);
                 Ok(self.builder.build_float_sub(lhs, rhs, "tmpsub"))
             }
-            Expr::Mul(expr, expr1) => {
+            Expr::Mul(lhs, rhs) => {
                 let lhs = self.compile_expr(lhs);
                 let rhs = self.compile_expr(rhs);
                 Ok(self.builder.build_float_mul(lhs, rhs, "tmpmul"))
             }
-            Expr::Div(expr, expr1) => {
+            Expr::Div(lhs, rhs) => {
                 let lhs = self.compile_expr(lhs);
                 let rhs = self.compile_expr(rhs);
                 Ok(self.builder.build_float_div(lhs, rhs, "tmpdiv"))
@@ -106,19 +106,19 @@ fn main() {
         let lol = 4 + xd(a, 4);
     }"; */
 
-    let lexer = lexer::Token::lexer(text);
+    // let lexer = lexer::Token::lexer(text);
 
-    let mut tokens = vec![];
+    // let mut tokens = vec![];
 
-    for (token, span) in lexer.spanned() {
-        match token {
-            Ok(token) => tokens.push(token),
-            Err(e) => {
-                eprintln!("lexer error at {:?}: {}", span, e);
-                return;
-            }
-        }
-    }
+    // for (token, span) in lexer.spanned() {
+    //     match token {
+    //         Ok(token) => tokens.push(token),
+    //         Err(e) => {
+    //             eprintln!("lexer error at {:?}: {}", span, e);
+    //             return;
+    //         }
+    //     }
+    // }
 
-    println!("{:#?}", parser::parser().parse(tokens));
+    // println!("{:#?}", parser::parser().parse(tokens));
 }
