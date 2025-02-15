@@ -29,8 +29,8 @@ pub enum Token<'a> {
     Equals,
     #[token(";")]
     Semicolon,
-    #[regex("[0-9]+", |lex| lex.slice().parse::<isize>().unwrap())]
-    Int(isize),
+    #[regex("[.0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
+    Float(f64),
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]
     Ident(&'a str),
 }
@@ -51,16 +51,16 @@ mod tests {
 
     #[test]
     fn addition() {
-        lex_valid("1 + 3", &[Int(1), Plus, Int(3)]);
+        lex_valid("1 + 3", &[Float(1), Plus, Float(3)]);
     }
 
     #[test]
     fn comments() {
-        lex_valid("1 + 3 // hello world", &[Int(1), Plus, Int(3)]);
+        lex_valid("1 + 3 // hello world", &[Float(1), Plus, Float(3)]);
         lex_valid(
             "1 + // hello world
             3",
-            &[Int(1), Plus, Int(3)],
+            &[Float(1), Plus, Float(3)],
         );
     }
 
@@ -68,7 +68,7 @@ mod tests {
     fn identifier() {
         lex_valid(
             "1 + hello * 4",
-            &[Int(1), Plus, Ident("hello"), Multiply, Int(4)],
+            &[Float(1), Plus, Ident("hello"), Multiply, Float(4)],
         )
     }
 
@@ -104,14 +104,14 @@ fn main(z, m) {
                 Ident("let"),
                 Ident("a"),
                 Equals,
-                Int(4),
+                Float(4),
                 Semicolon,
                 Ident("let"),
                 Ident("x"),
                 Equals,
                 Ident("a"),
                 Multiply,
-                Int(4),
+                Float(4),
                 Semicolon,
                 Ident("x"),
                 Minus,

@@ -5,7 +5,7 @@ use crate::lexer::Token;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Expr {
     // Integer literal
-    Int(isize),
+    Float(f64),
     Ident(String),
 
     // Unary minus
@@ -96,7 +96,7 @@ fn expr<'a>() -> parser!(Token<'a> => Expr) {
                 .clone()
                 .delimited_by(just(Token::OpenParen), just(Token::CloseParen));
 
-            let integer = select!(|_span| Token::Int(n) => Expr::Int(n));
+            let integer = select!(|_span| Token::Float(n) => Expr::Float(n));
             let ident = select!(|_span| Token::Ident(n) => Expr::Ident(n.to_owned()));
 
             let call = ident
@@ -221,7 +221,7 @@ mod tests {
     #[allow(dead_code)]
     impl Expr {
         pub fn int(value: isize) -> Self {
-            Self::Int(value)
+            Self::Float(value)
         }
 
         pub fn ident(name: &str) -> Self {
